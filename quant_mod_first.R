@@ -220,34 +220,37 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
   # 畫圖的部分 thank to 姿雅
   
   return_index_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
-    geom_line(aes(y = 投組累積報酬 , color = "blue")  ) +
-    geom_line(aes(y = 市場累積報酬 , color = "red")  ) +
+    geom_line(aes(y = 投組累積報酬, color = "Portfolio Return")) +
+    geom_line(aes(y = 市場累積報酬, color = "Market Return" )) +
     ggtitle("投資組合報酬與市場比較") +
     xlab("投資期間") +
-    ylab("投資累積報酬率 %")+
- #print( return_index_image )
-  
-  drawdown_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
-    geom_line(aes(y = dd , color = "Drawdown"  )   ) +
-    ggtitle("Downdise Risk") +
-    xlab("Time") +
-    ylab("Drawdown Rate %")+
-    scale_color_manual("", values = c("Portfolio Return" = "blue" , "Market Return" = "red",
-                                      "Drawdown" = "black")) +
+    ylab("投資累積報酬率 %" ) +
+    scale_color_manual("", values = c("Portfolio Return" = "blue" , "Market Return" = "red" )) +
     theme(
       legend.position = "bottom"
-    )
-  #print( drawdown_image )
+    )  
+  #print( return_index_image )
   
-  combine_image = plot_grid( return_index_image, drawdown_image ,nrow = 2 , align = "v" , rel_heights = c(2,1))
-  print(combine_image)
-  
+  drawdown_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
+     geom_line(aes(y = dd , color = "Drawdown"  )   ) +
+     ggtitle("Downdise Risk") +
+     xlab("投資期間") +
+     ylab("Drawdown Rate ")+
+     scale_color_manual("", values = c("Drawdown" = "black")) +
+     theme(
+        legend.position = "bottom"
+     )
+    # print( drawdown_image )
+    # 
+   combine_image = plot_grid( return_index_image, drawdown_image ,nrow = 2 , align = "v" , rel_heights = c(2,1))
+   print(combine_image)
+
   gc()
   print(Sys.time()-exe_time )
 return(list_package)
 }
 
-log_list_package = quant_func(table_data , start_day = 20130101 , end_day = 20220601 , trade_frequency = "month")
+log_list_package = quant_func(table_data , start_day = 20130101 , end_day = 20220601 , trade_frequency = "year")
 log_final_report = log_list_package[[1]]
 log_trade_list = log_list_package[[2]]
 log_portfolio_stock_trade = log_list_package[[3]]
