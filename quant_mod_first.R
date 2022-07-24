@@ -23,7 +23,7 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
   exe_time = print(Sys.time())
   # 交易時間篩選
   trade_time_func = function( table_data , start_day = 20130101 , end_day = 20220101 , trade_frequency = "season" ){
-  #指交易一次 : 開發中
+  #指交易一次 : 開發中，比較不重要
   once_trade = c()  
   #年報截止日
   year_trade = c(0331)
@@ -93,20 +93,32 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
   
   # 篩出stock list，設計一個for迴圈，把每次交易日要篩選的股票篩選出來，在合併，形成一籃子要交易的股票
   # 篩選的回合，根據上面給出的交易日期，使用迴圈方式，把每期要交易的股票篩選出來
+  i = 1 
 
   standby_stock_list = data.table()
   for(i in   1:length(trade_day)){
     buy_day= trade_day[i] #buy_day會等於那一天的資料
-    tmp_a = table_data[table_data$年月日 == buy_day,]  #目的:生產出要買進股票那一天的資料
+    tmp_a = table_data[table_data$年月日 == buy_day,]  #目的:生產出要買進股票那一天的資料，TEJ的話感覺可以不用改
     tmp_a = tmp_a %>% na.omit()
     #####篩選環節 先用抵著
- 
-     cardinal = order(tmp_a$調整收盤價, decreasing = T) #排序當天的股票 收盤價最高的
+     #基本過濾
+     #cardinal = order(tmp_a$調整收盤價, decreasing = T) # 範例 #排序當天的股票 收盤價最高的 
+     tmp_a = tmp_a %>% filter(TSE產業別 > 0)  
      tmp_a = tmp_a %>% filter(證券代碼 > 1000 & 證券代碼< 10000)
-     tmp_a = tmp_a %>% filter(tmp_a$Price_MA_20 > 10)
-     tmp_a = tmp_a[tmp_a$調整收盤價 > tmp_a$Price_MA_60, ]
-     tmp_a = tmp_a[tmp_a$成交張數 > 300 ,]
-     cardinal = order(tmp_a$股價年標準差, decreasing = F ) 
+     tmp_a = tmp_a %>% filter(tmp_a$Price_MA_20 > 10) #排除雞蛋水餃股
+     tmp_a = tmp_a[tmp_a$調整收盤價 > tmp_a$Price_MA_60, ] #季線上 動能
+     tmp_a = tmp_a[tmp_a$成交張數 > 300 ,] #流動性
+     cardinal = order(tmp_a$CV股價離散程度, decreasing = F) #依照CV做排序，由小排到大
+     #財報數據篩選
+     tmp_a$rank_ROE = rank(tmp_a$ROE)
+     tmp_a$rank_ROA = rank(tmp_a$ROA)
+     tmp_a$rank_營業毛利率 = rank(tmp_a$營業毛利率)
+     tmp_a$rank_GPOA = rank(tmp_a$GPOA)
+     tmp_a$rank_CFOA = rank(tmp_a$CFOA)
+     #tmp_a$rank_ACC = rank(tmp_a$ACC應計項目) #這個不知道要怎麼使用先不做計算
+     tmp_a$total_rank = tmp_a$rank_ROE + tmp_a$rank_ROA + tmp_a$rank_營業毛利率 + tmp_a$rank_GPOA + tmp_a$rank_CFOA 
+    #錯的 tmp_a$total_rank = sum(tmp_a$rank_ROE,tmp_a$rank_ROA, tmp_a$rank_營業毛利率, tmp_a$rank_GPOA,tmp_a$rank_CFOA )
+     #cardinal = order(tmp_a$股價年標準差, decreasing = F ) 
      #tmp_a = tmp_a[證券代碼 == 0050 ,]
  
     #####篩選結束
@@ -181,13 +193,14 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
                                             winning_percentage , trading_ndays , n_stock ) 
   
   # 統計股票出現次數
-  stock_appear_count_list = log_portfolio_stock_trade$證券代碼
-  stock_appear_count_list = count(stock_appear_count_list) %>% data.table()
+  stock_appear_count_list = log_portfolio_stock_trade$證券代碼 
+  stock_appear_count_list = table(stock_appear_count_list) %>% as.data.table()
   colnames(stock_appear_count_list) = c("證券代碼","出現次數")
+  stock_appear_count_list$證券代碼 = stock_appear_count_list$證券代碼 %>% as.numeric()
   log_portfolio_stock_trade = merge(log_portfolio_stock_trade, stock_appear_count_list , by = "證券代碼")
-  cardinal = order(log_portfolio_stock_trade$出現次數, decreasing = T ) 
-  rownames(log_portfolio_stock_trade) = NULL
-  
+  #cardinal = order(log_portfolio_stock_trade$出現次數, decreasing = T ) 
+  #rownames(log_portfolio_stock_trade) = NULL
+   
   # 把df打包成list，方便之後return
   list_package = list( log_correct_portfolio_final_report , log_trade_list , log_portfolio_stock_trade )
   
@@ -250,17 +263,17 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
 return(list_package)
 }
 
-log_list_package = quant_func(table_data , start_day = 20130101 , end_day = 20220601 , trade_frequency = "year")
+log_list_package = quant_func(table_data , start_day = 20130101 , end_day = 20220601 , trade_frequency = "month")
 log_final_report = log_list_package[[1]]
 log_trade_list = log_list_package[[2]]
 log_portfolio_stock_trade = log_list_package[[3]]
 
 #施工使用
-   # start_day = 20160101
-   # end_day = 20220601
-   # discount = 0
-   # trade_frequency = "season"
+   #  start_day = 20160101
+   #  end_day = 20220601
+   #  discount = 0
+   #  trade_frequency = "season"
    # A = 100
-   # global_market_index = 0050
-   # 
+   #  global_market_index = 0050
+   #  
   
