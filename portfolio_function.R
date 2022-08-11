@@ -1,6 +1,7 @@
 # this file was encoding by UTF-8
 # this function need data to caculate. The data must contain "年月日"(date) and "調整收盤價"(stock price) column
-
+table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_stock_price_data20100104_20220809.txt", encoding = "unknown" , header = T,sep = ",")
+stop_loss_point = -0.25
 
 portfolio_function = function(table_data, start_day , end_day  , stock_list , A  ,global_market_index  , discount ){ 
   #table_data = 整理好的dataframe 
@@ -17,7 +18,7 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
   start_day = ymd(start_day)
   end_day = ymd(end_day)
   table_data = table_data %>% filter(年月日>= start_day) %>% filter(年月日<= end_day)
-  
+  table_data = table_data[,c("證券代碼","公司名稱","年月日","隔日開盤價","open_price_daily_change")]
   ##### 這邊是為了計算投資報酬指數，所做的資料整理  # 感覺daily change可以在一開始的時候就先算好了
   #設計一個函數，可以分組後往下移n個單位
   # group_daily_change_function = function( table_data , n = 1){ #設計一個函數，可以分組後往下移n個單位
@@ -39,7 +40,7 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
                            } )
     #cumprod_index$cumprod_index = cumprod_index$cumprod_return_rate #施工用看一下還沒-1前的變化
     cumprod_index$cumprod_return_rate = cumprod_index$cumprod_return_rate - 1 #這樣是變成那個時點的複利，所以到時候只要用投入資金乘上1+這個值就是這個時間點的複利效果
-    cumprod_index$cumprod_return_rate = round(cumprod_index$cumprod_return_rate,digit = 3)
+    #cumprod_index$cumprod_return_rate = round(cumprod_index$cumprod_return_rate,digit = 3)
     return(cumprod_index)
   }
   table_data = group_cumprod_func(table_data)
@@ -51,7 +52,7 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     fee = 0.001425*(1-discount)
     trade_cost = ((1-fee)*(1-(fee+tax)))/1
     
-    # 先篩出要的股票，在計算指數成長
+    # 先篩出要的股票，再計算指數成長
     portfolio = filter(table_data,證券代碼 %in% stock_list ) #多重篩選用filter比較好用
     portfolio$分配後的投資報酬指數 = A*w*trade_cost*(portfolio$cumprod_return_rate+1) #分配後的比重
     
@@ -66,6 +67,10 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     portfolio_return_rate = portfolio[,c("年月日","分配後的漲跌幅")]
     portfolio_return_rate = portfolio_return_rate %>% group_by(年月日) %>% summarise_all(sum)
     portfolio_return_rate = portfolio_return_rate[-nrow(portfolio_return_rate),]
+    
+    #停損應該在這裡加入
+    
+    
     
     #勝率，想記錄當期買了甚麼
     portfolio_record = portfolio[,c("證券代碼","公司名稱","年月日","隔日開盤價")]
@@ -160,12 +165,12 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
 #施工設定投資參數
 #all_stock_list = unique(table_data$證券代碼)
  #stock_list = all_stock_list
- #  stock_list = c(3008,0050,0056,1101,1102,1103,1104,1108,1109,1110,1201,1203,1210,1213,1215,1216,1217,1218,1219,1220,1225,1227,1229,1231,1232,1233,1234)
- #     start_day = 20130331
- #     end_day = 20220331
- #    A = 100
- #     discount = 1
- #     tax = 0.003
+   stock_list = c(3008,1101,1102,1103,1104,1108,1109,1110,1201,1203,1210,1213,1215,1216,1217,1218,1219,1220,1225,1227,1229,1231,1232,1233,1234)
+     start_day = 20220101
+      end_day = 20220331
+     A = 100
+      discount = 1
+      tax = 0.003
  #     global_market_index = 0050
  #     stock_list = 0050
  #    aa = standby_stock_list[,4, with =FALSE]  #測試quant_mod first跑出來的資料正不正確
