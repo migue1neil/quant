@@ -10,7 +10,6 @@
 # 功能:給他一份含有隔日開盤價的資料表，他會計算出每檔股票的回落幅度%~
 #     再根據我們設定的Stop_point回報那些股票達到停損，取第一次達到停損點之跌幅當作當次停損損失%
 
-
 check_stop_loss_point_func = function(daily_stock_price_table , stop_loss_point = stop_loss_point){
 
   
@@ -30,10 +29,24 @@ check_stop_loss_point_func = function(daily_stock_price_table , stop_loss_point 
   daily_stock_price_table$individual_stock_dd = (daily_stock_price_table$cumprod_return_rate - daily_stock_price_table$cummax) / daily_stock_price_table$cummax
   daily_stock_price_table = daily_stock_price_table %>% filter(individual_stock_dd <= stop_loss_point)
   daily_stock_price_table = daily_stock_price_table %>% group_by(證券代碼,公司名稱) %>%　filter(年月日 == min(年月日))
-
-  return(daily_stock_price_table)
+  stop_loss_sheet = daily_stock_price_table[,c("證券代碼","公司名稱","年月日","隔日開盤價","individual_stock_dd")]
+  stop_loss_sheet = stop_loss_sheet %>% plyr::rename( c("年月日" = "停損時間點" ,"隔日開盤價" = "停損價格" ,"individual_stock_dd" = "停損跌幅"))
+  return(stop_loss_sheet)
 }
 
 
-stop_loss_point_table = check_stop_loss_point_func(portfolio ,stop_loss_point)
+#stop_loss_point_table = check_stop_loss_point_func(portfolio ,stop_loss_point)
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -1,17 +1,18 @@
 # this file was encoding by UTF-8
-# this function need data to caculate. The data must contain "年月日"(date) and "調整收盤價"(stock price) column
-table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_stock_price_data20100104_20220809.txt", encoding = "unknown" , header = T,sep = ",")
-stop_loss_point = -0.25
+# this function need data to caculate. The data must contain "證券代碼","公司名稱"."年月日"(date) and "每日的報酬變動"(open_price_daily_change) column
 
-portfolio_function = function(table_data, start_day , end_day  , stock_list , A  ,global_market_index  , discount ){ 
+
+
+portfolio_function = function(table_data, start_day , end_day  , stock_list , A  ,global_market_index , discount ,stop_loss_func , stop_loss_point ){ 
+  
   #table_data = 整理好的dataframe 
   #A = 投入的金額 
   #start_day = 開始的日期 範例: 20200101
   #end_day = 結束的日期 範例: 20220501
   #A = 起始投資金額，預設為100
-  #global_market_index = 全域市場變數 
-  # print(start_day)
-  # print(end_day)
+  #global_market_index = 全域市場變數，要比較的標的
+  #stop_loss = 是否執行停損功能
+  # stop_loss_point = 接受損失幅度,停損點
   
   #先篩選資料的時間
   table_data$年月日 = ymd(table_data$年月日)
@@ -19,24 +20,13 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
   end_day = ymd(end_day)
   table_data = table_data %>% filter(年月日>= start_day) %>% filter(年月日<= end_day)
   table_data = table_data[,c("證券代碼","公司名稱","年月日","隔日開盤價","open_price_daily_change")]
-  ##### 這邊是為了計算投資報酬指數，所做的資料整理  # 感覺daily change可以在一開始的時候就先算好了
-  #設計一個函數，可以分組後往下移n個單位
-  # group_daily_change_function = function( table_data , n = 1){ #設計一個函數，可以分組後往下移n個單位
-  #   shift_data = ddply( table_data , c("證券代碼","公司名稱") , 
-  #                       .fun= function(x){ #這裡的x是指根據上面分完組切出來的table_data
-  #                         transform(x, 前一日價格 = with(x, shift(調整收盤價 , n )))
-  #                       } )
-  #   shift_data = na.omit(shift_data)
-  #   shift_data$daily_change = (shift_data$調整收盤價 - shift_data$前一日價格) / shift_data$前一日價格
-  #   return (shift_data)
-  # }
-  # table_data = group_daily_change_function(table_data)
+  
   # 設計一個函數，可以計算累積乘積(每天的複利)
   group_cumprod_func = function(table_data){
-    table_data$tmp_index = table_data$open_price_daily_change + 1 #tmp_index是每日變動+1，不是複利
+    #table_data$tmp_index = table_data$open_price_daily_change + 1 #tmp_index是每日變動+1，不是複利
     cumprod_index = ddply( table_data , c("證券代碼","公司名稱") , 
                            .fun= function(x){
-                             transform(x, cumprod_return_rate = with(x, cumprod(tmp_index)))
+                             transform(x, cumprod_return_rate = with(x, cumprod(open_price_daily_change + 1)))
                            } )
     #cumprod_index$cumprod_index = cumprod_index$cumprod_return_rate #施工用看一下還沒-1前的變化
     cumprod_index$cumprod_return_rate = cumprod_index$cumprod_return_rate - 1 #這樣是變成那個時點的複利，所以到時候只要用投入資金乘上1+這個值就是這個時間點的複利效果
@@ -46,7 +36,7 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
   table_data = group_cumprod_func(table_data)
 
   ##### 接下來要用到上面算完的東西來計算指標，要把上面的資料取出我們要的股票來計算投資報酬率
-  portfolio_risk_return_func = function(stock_list , discount , tax = 0.003){
+  portfolio_risk_return_func = function(stock_list , discount , tax = 0.003 , stop_loss_func , stop_loss_point ){
     n = as.numeric(length(stock_list)) #投資股票的數量
     w = 1/n  #分配的比重 #假設平均分配
     fee = 0.001425*(1-discount)
@@ -54,9 +44,28 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     
     # 先篩出要的股票，再計算指數成長
     portfolio = filter(table_data,證券代碼 %in% stock_list ) #多重篩選用filter比較好用
-    portfolio$分配後的投資報酬指數 = A*w*trade_cost*(portfolio$cumprod_return_rate+1) #分配後的比重
     
-    # 輸出日報酬使用(現役)
+    # 停損功能
+    if(stop_loss_func == T){  #要先把分配前，達到停損的股票那天之後的每日報酬變動改成0 
+      source("func_check_stock_loss.R",encoding = "UTF-8")
+      stop_loss_point_table = check_stop_loss_point_func(portfolio ,stop_loss_point)
+      
+      portfolio = merge(portfolio , stop_loss_point_table , by = c("證券代碼","公司名稱") , all = T) %>%　arrange(證券代碼,年月日)
+      
+      portfolio$open_price_daily_change = ifelse(portfolio$年月日 > portfolio$停損時間點  & is.na(portfolio$停損時間點) == F , 0, portfolio$open_price_daily_change )
+      
+      #portfolio$daily_change_after_stop_loss = portfolio$open_price_daily_change
+      #portfolio$daily_change_after_stop_loss = ifelse(portfolio$年月日 > portfolio$停損時間點  & is.na(portfolio$停損時間點) == F , 0, portfolio$daily_change_after_stop_loss )
+      # portfolio$停損跌幅 = nafill(portfolio$停損跌幅, fill = 0)
+      # portfolio$停損時間點 = nafill(portfolio$停損時間點, fill = 0)
+      portfolio = ddply( portfolio , c("證券代碼","公司名稱") , 
+                             .fun= function(x){
+                               transform(x, cumprod_return_rate = with(x, cumprod(open_price_daily_change + 1)))
+                             } )
+      portfolio$cumprod_return_rate = portfolio$cumprod_return_rate - 1
+    }
+          
+    # 輸出日報酬使用(現役)　#提出去外面做計算
     portfolio$分配後的漲跌幅 = w*trade_cost*(portfolio$open_price_daily_change)
     check_na = which(is.na(portfolio$分配後的漲跌幅) )
     if (length(check_na) > 0 ){
@@ -65,14 +74,13 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
       cat("當期資料有缺失值，或者下市，以損失100%處理，請檢查","\n")
     }
     portfolio_return_rate = portfolio[,c("年月日","分配後的漲跌幅")]
+    #將各股的日報酬變動平均起來　－＞　變成投組每天的日報酬驗動
     portfolio_return_rate = portfolio_return_rate %>% group_by(年月日) %>% summarise_all(sum)
+    #扣掉最後一天，因為報酬是用後日減隔日／隔日，所以最後一天不會用到
     portfolio_return_rate = portfolio_return_rate[-nrow(portfolio_return_rate),]
     
-    #停損應該在這裡加入
-    
-    
-    
-    #勝率，想記錄當期買了甚麼
+    ##### 這邊是要計算每期的報酬率，每期的風險指標，每期的最大回落
+    #勝率，想記錄當期買了甚麼，個股報酬如何
     portfolio_record = portfolio[,c("證券代碼","公司名稱","年月日","隔日開盤價")]
     portfolio_start = portfolio_record[portfolio_record$年月日 == min(portfolio_record$年月日), ]
     portfolio_end = portfolio_record[portfolio_record$年月日 == max(portfolio_record$年月日), ]
@@ -80,6 +88,14 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     portfolio_record = merge(portfolio_start, portfolio_end , by= c("證券代碼","公司名稱") )
     colnames(portfolio_record)= c("證券代碼","公司名稱","買入時間","買入開盤價","賣出時間","賣出價格")
     portfolio_record$單筆報酬 = ( (portfolio_record$賣出價格 - portfolio_record$買入開盤價) / portfolio_record$買入開盤價 ) %>% round(digits = 4)
+    
+    #當期停損設計
+    if(stop_loss_func == T){
+    stop_loss_point_table$執行停損 = "V"
+    portfolio_record = merge(portfolio_record,stop_loss_point_table, by = c("證券代碼","公司名稱"), all =T　)
+    }
+    
+    #每期勝率
     winning_percentage = ifelse(portfolio_record$單筆報酬 > 0 , 1 , 0) %>% mean() %>% round(digits = 2)
     
     #####
@@ -101,7 +117,7 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     colnames(portfolio_return_index)[2] = "投資報酬指數"
     portfolio_return_index = portfolio_return_index[-nrow(portfolio_return_index),] #會多算到一天的報酬，要把它刪掉
     
-    # 計算投資組合風險指標
+    # 計算單期投資組合風險指標
     x = portfolio_return_index
     
     # 期末報酬率
@@ -126,13 +142,17 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     #####
     
     # 打包成list後輸出
-    log_package = list( pf_value,portfolio_record, portfolio_return_rate) #打包股票表格還有報酬表格輸出
+    log_package = list( pf_value,  portfolio_record, portfolio_return_rate) #打包股票表格還有報酬表格輸出
     return(log_package) 
   }
   
+  #portfolio_df的判斷式，輸出投組df
+ 
   if(length(stock_list) != 0){
     discount = discount
-    portfolio_df = portfolio_risk_return_func(stock_list, discount = discount)
+    stop_loss_func = stop_loss_func
+    stop_loss_point = stop_loss_point
+    portfolio_df = portfolio_risk_return_func(stock_list, discount = discount, stop_loss_func = stop_loss_func , stop_loss_point = stop_loss_point )
     # 把剛剛輸出的list解開
     portfolio_return_rate = portfolio_df[[3]] # 輸出只有日報酬，要拿去外面算的表格
     portfolio_record = portfolio_df[[2]]  # 輸出股票交易紀錄 
@@ -147,9 +167,10 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
                                投組回落開始時間 = ymd(20000101) , 投組回落結束時間 = ymd(20000101)
                               ,投組回落持續天數 =  0 ,勝率 = 0  , 投資股票數量 = 0 )
     portfolio_record = NA
+    print("當期stock_list數量為0 ,會生成一個空df")
   } 
   
-  market_df = portfolio_risk_return_func( global_market_index , discount = 1 , tax = 0) #算市場指數 ，假設什麼都不做，就單買0050的話
+  market_df = portfolio_risk_return_func( global_market_index , discount = 1 , tax = 0 , stop_loss_func = F , stop_loss_point = 0) #算市場指數 ，假設什麼都不做，就單買0050的話
   market_daily_change = market_df[[3]] # 輸出期間內市場指數日報酬(非複利)的資料
   colnames(market_daily_change) = c("年月日","市場漲跌幅")
   market_df = market_df[[1]] # 提取出市場的報酬資訊(pf_value)
@@ -163,14 +184,17 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
 }
 
 #施工設定投資參數
-#all_stock_list = unique(table_data$證券代碼)
+ #all_stock_list = unique(table_data$證券代碼)
  #stock_list = all_stock_list
-   stock_list = c(3008,1101,1102,1103,1104,1108,1109,1110,1201,1203,1210,1213,1215,1216,1217,1218,1219,1220,1225,1227,1229,1231,1232,1233,1234)
-     start_day = 20220101
-      end_day = 20220331
-     A = 100
-      discount = 1
-      tax = 0.003
+ # table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_stock_price_data20100104_20220809.txt", encoding = "unknown" , header = T,sep = ",")
+  # stop_loss_point = -0.10
+ # stop_loss_func = T
+ #    stock_list = c(3008,1101,1102,1103,1104,1108,1109,1110,1201,1203,1210,1213,1215,1216,1217,1218,1219,1220,1225,1227,1229,1231,1232,1233,1234)
+ #      start_day = 20220101
+ #       end_day = 20220331
+ #      A = 100
+ #       discount = 1
+ #       tax = 0.003
  #     global_market_index = 0050
  #     stock_list = 0050
  #    aa = standby_stock_list[,4, with =FALSE]  #測試quant_mod first跑出來的資料正不正確
@@ -178,4 +202,143 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
  #    back_test_datapoint = portfolio_function(table_data,start_day = 20130101, end_day = 20220511,stock_list = stock_list ,global_market_index = 0050)
  # 
  # # xx = table_data %>% filter(證券代碼 %in% stock_list) %>% filter(年月日 > 20180301 & 年月日 < 20190501)
+
+multiple_period_portfolio_index_graph_func = function(log_trade_list,log_portfolio_stock_trade,each_portfolio_return_rate){
+  
+  
+# 把每隻股票日報酬平均之後合併的df，這樣這張df就會有每天分配過後的漲跌幅，用他算報酬。
+each_portfolio_return_rate$投組累積報酬 = (cumprod( each_portfolio_return_rate$分配後的漲跌幅+1 ) -1) %>% round(digits = 4)
+each_portfolio_return_rate$分配後的漲跌幅 = each_portfolio_return_rate$分配後的漲跌幅 %>% round(digits = 4)
+each_portfolio_return_rate$市場累積報酬 = (cumprod( each_portfolio_return_rate$市場漲跌幅+1 ) -1) %>% round(digits = 4)
+each_portfolio_return_rate$市場漲跌幅 = each_portfolio_return_rate$市場漲跌幅 %>% round(digits = 4)
+
+#報酬指數
+each_portfolio_return_rate$投組累積報酬指數 = each_portfolio_return_rate$投組累積報酬+1
+each_portfolio_return_rate$市場累積報酬指數　= each_portfolio_return_rate$市場累積報酬 + 1
+
+# 畫DD線 : 下面的最大回洛也是正確的，只是這邊自己算的會比較大的原因是因為，這邊是用歷史高點過去的歷史高點，所以如果有漲幅的話這個不考慮，
+# 但是下面的那個會考慮，應該啦，用人加函數的缺點就是不知道確切來說是怎麼去做計算的
+each_portfolio_return_rate$cummax = cummax(each_portfolio_return_rate$投組累積報酬指數) 
+each_portfolio_return_rate$dd =  ((each_portfolio_return_rate$投組累積報酬指數)/cummax(each_portfolio_return_rate$投組累積報酬指數))-1
+dd_ratio = min(each_portfolio_return_rate$dd) %>% round(4)
+dd_day = each_portfolio_return_rate[each_portfolio_return_rate$dd == min(each_portfolio_return_rate$dd),] #找出回落最深的dd,那毅天就是結束的一天
+dd_end = dd_day$年月日
+dd_start = each_portfolio_return_rate[each_portfolio_return_rate$投組累積報酬指數 == dd_day$cummax,]
+dd_start = dd_start$年月日
+dd_during_period = dd_end-dd_start
+
+#市場dd 
+each_portfolio_return_rate$market_dd =  ((each_portfolio_return_rate$市場累積報酬指數)/cummax(each_portfolio_return_rate$市場累積報酬指數))-1
+market_dd_ratio = min(each_portfolio_return_rate$market_dd) %>% round(4)
+dd_df = data.table(投組最大回落 = dd_ratio , 回落開始日期 =  dd_start ,
+                   回落結束日期 = dd_end , 回落持續天數 = dd_during_period , 市場最大回落 = market_dd_ratio )
+
+
+# 最大回落 利用函數做出來的mdd指標，比上面自己製作的還要小，不知道是為甚麼沒有檢查，也不知道函數要怎麼檢查，沒有使用
+# mdd =  each_portfolio_return_rate$投組累積報酬指數 %>% arrange(年月日) 
+# mdd =  each_portfolio_return_rate$投組累積報酬指數 %>% maxdrawdown()
+# mdd_ratio = (each_portfolio_return_rate$投組累積報酬指數[mdd$to] - each_portfolio_return_rate$投組累積報酬指數[mdd$from]) / each_portfolio_return_rate$投組累積報酬指數[mdd$from]
+# mdd_ratio = round(mdd_ratio,digits = 3)
+# mdd_start_day = each_portfolio_return_rate$年月日[mdd$from] #最大回落高點日期
+# mdd_end_day = each_portfolio_return_rate$年月日[mdd$to] #最大回落低點日期
+# mdd_during_period = (mdd_end_day - mdd_start_day) %>% as.numeric()   #回落時間
+# # each_portfolio_return_rate$市場累積報酬指數 = each_portfolio_return_rate$市場累積報酬+1
+# mdd = maxdrawdown(each_portfolio_return_rate$市場累積報酬指數)
+# market_mdd_ratio = (each_portfolio_return_rate$市場累積報酬指數[mdd$to] - each_portfolio_return_rate$市場累積報酬指數[mdd$from]) / each_portfolio_return_rate$市場累積報酬指數[mdd$from] %>% round(digits = 3)
+# market_mdd_ratio = round(market_mdd_ratio,digits = 3)
+# mdd_df = data.table(投組最大回落 = mdd_ratio , 回落開始日期 =  mdd_start_day ,
+#                     回落結束日期 = mdd_end_day , 回落持續天數 = mdd_during_period , 市場最大回落 = market_mdd_ratio)
+
+
+# 總報酬
+pf_total_return = each_portfolio_return_rate$投組累積報酬[length(each_portfolio_return_rate$投組累積報酬)]
+market_total_return = each_portfolio_return_rate$市場累積報酬[length(each_portfolio_return_rate$市場累積報酬)]
+
+# 年化報酬
+year = length(each_portfolio_return_rate$投組累積報酬) / 252
+pf_annual_return = ( (1+pf_total_return)^(1/year) -1 ) %>% round(digits = 3)
+market_annual_return = ( (1+market_total_return)^(1/year) -1 ) %>% round(digits = 3)
+return_df = data.table(投組總報酬 = pf_total_return , 投組年化報酬 = pf_annual_return , 
+                       市場總報酬 = market_total_return , 市場年化報酬 = market_annual_return)
+
+# 勝率
+winning_percentage = data.table(平均勝率 = mean(log_trade_list$勝率)) %>% round(digits = 2)
+
+# 把指標打包起來
+trade_period = data.table(投資開始日期 = start_day , 投資結束日期 = end_day)
+trading_ndays = data.table(交易次數 = unique(log_portfolio_stock_trade$買入時間) %>% length() )
+n_stock = data.table(平均投資檔數 = mean(log_trade_list$投資股票數量))
+log_correct_portfolio_final_report = data.table( trade_period, return_df , dd_df , 
+                                                 winning_percentage , trading_ndays , n_stock ) 
+
+# 統計股票出現次數
+stock_appear_count_list = log_portfolio_stock_trade$證券代碼 
+stock_appear_count_list = table(stock_appear_count_list) %>% as.data.table()
+colnames(stock_appear_count_list) = c("證券代碼","出現次數")
+stock_appear_count_list$證券代碼 = stock_appear_count_list$證券代碼 %>% as.numeric()
+log_portfolio_stock_trade = merge(log_portfolio_stock_trade, stock_appear_count_list , by = "證券代碼")
+#cardinal = order(log_portfolio_stock_trade$出現次數, decreasing = T ) 
+#rownames(log_portfolio_stock_trade) = NULL
+
+#畫圖出來
+
+# 畫圖的部分 thank to 姿雅
+
+return_index_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
+  geom_line(aes(y = 投組累積報酬*100, color = "Portfolio Return")) +
+  geom_line(aes(y = 市場累積報酬*100, color = "Market Return" )) +
+  ggtitle("投資組合報酬與市場比較") +
+  xlab("投資期間") +
+  ylab("投資累積報酬率 %" ) +
+  scale_color_manual("", values = c("Portfolio Return" = "blue" , "Market Return" = "red" )) +
+  theme(
+    legend.position = "bottom"
+  )  
+#print( return_index_image )
+
+drawdown_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
+  geom_line(aes(y = dd , color = "Drawdown"  )   ) +
+  ggtitle("Downside Risk") +
+  xlab("投資期間") +
+  ylab("Drawdown Rate ")+
+  scale_color_manual("", values = c("Drawdown" = "black")) +
+  theme(
+    legend.position = "bottom"
+  )
+# print( drawdown_image )
+# 
+combine_image = plot_grid( return_index_image, drawdown_image ,nrow = 2 , align = "v" , rel_heights = c(2,1))
+print(combine_image)
+
+
+# 把df打包成list，方便之後return
+list_package = list( each_portfolio_return_rate ,log_correct_portfolio_final_report , log_trade_list , log_portfolio_stock_trade )
+return(list_package)
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
