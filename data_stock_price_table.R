@@ -1,5 +1,5 @@
 #資料處理 : 股價資料表
-source("caculate_index_function.R" , encoding = "utf-8")
+source("func_caculate_index.R" , encoding = "utf-8")
 setwd("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data")
 
 library(data.table)
@@ -9,7 +9,7 @@ library(magrittr)
 library(TTR)
 
 ######股價報表資料######
-stock_price_data = fread("stock_price_data0809.txt", encoding = "unknown" , header = T,sep = "\t")
+stock_price_data = fread("stock_price_data20080101_20220813.txt", encoding = "unknown" , header = T,sep = "\t")
 table_data = stock_price_data 
 #table_data = table_data[table_data$年月日>20210101,]
 table_data = table_data %>% plyr::rename(c( "TSE 產業別"="TSE產業別" ,"開盤價(元)"="調整開盤價", "收盤價(元)" = "調整收盤價",
@@ -79,6 +79,7 @@ table_data = ddply( table_data , c("年月日") ,
 ######存檔######
 stock_filename = paste("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_stock_price_data"
                        ,min(table_data$年月日)%>% as.character(),"_",max(table_data$年月日)%>% as.character(),".txt",sep="" )
+print(stock_filename)
 write.table(table_data,stock_filename , row.names = FALSE , sep = ",")
 
 gc()

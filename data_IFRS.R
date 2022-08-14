@@ -7,7 +7,7 @@ library(tidyverse)
 library(lattice) # 畫機率密度函數使用
 library(TTR)
 
-
+#TEJ特殊轉檔貌似有其限制，抓20000101_20220813，結果只有從2009年開始
 "
 其他相關指標說明請參閱因子投資相關文獻
 GPOA = 營業毛利/資產總額
@@ -18,8 +18,9 @@ CFOA = 自由現金流量(D)/資產總額
 ACC = 折舊－CFO - (流動資產-流動負債) / 資產總額
 淨利 = 常續性稅後淨利
 "
+
 #財務報表資料
-IFRS = fread("IFRS20220810.txt" , sep = "," )
+IFRS = fread("IFRS20000101_20220813.txt" , sep = "," )
 IFRS$證券代碼 = str_trim( IFRS$證券代碼 , side='both')
 IFRS = separate(IFRS, 證券代碼 , c("證券代碼","公司名稱")," ")
 IFRS$證券代碼 = IFRS$證券代碼 %>% as.numeric()
@@ -154,15 +155,36 @@ z_score_fin_index = ddply( z_score_fin_index, c("年月") ,
                                       )
                           } )
 
+#####移除ｚ值大於3的極端值#####
+
+z_score_fin_index = z_score_fin_index %>% filter( #獲利因子
+                                                  abs(z_ROE)< 3 &
+                                                  abs(z_ROE)< 3 &
+                                                  abs(z_GPOA)< 3 &
+                                                  abs(z_營業毛利率)< 3 &
+                                                  abs(z_CFOA) < 3 &
+                                                  abs(z_ACC) < 3 &
+                                                  #成長因子
+                                                  abs(z_change_GPOA) < 3 &
+                                                  abs(z_change_營業毛利率) < 3 &
+                                                  abs(z_change_CFOA) < 3 &
+                                                  # abs(z_change_ACC應計項目) < 3 & #目前沒用到
+                                                  #安全因子
+                                                  abs(z_sigma_ROE) < 3 &
+                                                  abs(z_sigma_ROA) < 3 &
+                                                  abs(z_負債比率) < 3 
+                                                 ) 
+
+
 #####算分數#####
 attach(z_score_fin_index)
 z_score_fin_index$score_profit = ( z_GPOA + z_ROE + z_ROA + z_CFOA + z_營業毛利率 - z_ACC ) / 6
-z_score_fin_index$score_growth = ( z_change_GPOA + z_change_ROE + z_change_ROA + z_change_CFOA + z_change_營業毛利率 + z_change_ACC應計項目 ) / 6
-z_score_fin_index$score_safety = -( z_負債比率 + z_sigma_ROE + z_sigma_ROA ) / 3
+z_score_fin_index$score_growth = ( z_change_GPOA + z_change_ROE + z_change_ROA + z_change_CFOA + z_change_營業毛利率  ) / 5
+z_score_fin_index$score_safety = ( z_負債比率 + z_sigma_ROE + z_sigma_ROA ) / 3
 
 
 #z_score_fin_index_fin_index = z_score_fin_index_fin_index[z_score_fin_index_fin_index$年月 == 201306,]
-#densityplot(z_score_fin_index$score_safety)
+densityplot(z_score_fin_index$score_profit)
 
 
 #####季別調整 : 設計時間標籤#####
@@ -178,6 +200,7 @@ z_score_fin_index$時間標籤 = ifelse(z_score_fin_index$季別 == 4 , (z_score
 
 #####儲存表格#####
 IFRSfilename = paste("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_z_score_fin_index_data",max(z_score_fin_index$時間標籤)%>% as.character(),".txt",sep="")
+print(IFRSfilename)
 write.table(z_score_fin_index, IFRSfilename , row.names = FALSE , sep = ",")
 
 gc()

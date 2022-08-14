@@ -2,7 +2,7 @@
 # this function need data to caculate. The data must contain "證券代碼","公司名稱"."年月日"(date) and "每日的報酬變動"(open_price_daily_change) column
 
 
-
+##### 算出單一期的報酬，並且匯出投組每日報酬變動 #####
 portfolio_function = function(table_data, start_day , end_day  , stock_list , A  ,global_market_index , discount ,stop_loss_func , stop_loss_point ){ 
   
   #table_data = 整理好的dataframe 
@@ -203,119 +203,149 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
  # 
  # # xx = table_data %>% filter(證券代碼 %in% stock_list) %>% filter(年月日 > 20180301 & 年月日 < 20190501)
 
+#####算出每期報酬 & 年為單位的報酬#####
 multiple_period_portfolio_index_graph_func = function(log_trade_list,log_portfolio_stock_trade,each_portfolio_return_rate){
   
+  #把每隻股票日報酬平均之後合併的df，這樣這張df就會有每天分配過後的漲跌幅，用他算報酬。
+  each_portfolio_return_rate$投組累積報酬 = (cumprod( each_portfolio_return_rate$分配後的漲跌幅+1 ) -1) 
+  each_portfolio_return_rate$分配後的漲跌幅 = each_portfolio_return_rate$分配後的漲跌幅 
+  each_portfolio_return_rate$市場累積報酬 = (cumprod( each_portfolio_return_rate$市場漲跌幅+1 ) -1) 
+  each_portfolio_return_rate$市場漲跌幅 = each_portfolio_return_rate$市場漲跌幅 
   
-# 把每隻股票日報酬平均之後合併的df，這樣這張df就會有每天分配過後的漲跌幅，用他算報酬。
-each_portfolio_return_rate$投組累積報酬 = (cumprod( each_portfolio_return_rate$分配後的漲跌幅+1 ) -1) %>% round(digits = 4)
-each_portfolio_return_rate$分配後的漲跌幅 = each_portfolio_return_rate$分配後的漲跌幅 %>% round(digits = 4)
-each_portfolio_return_rate$市場累積報酬 = (cumprod( each_portfolio_return_rate$市場漲跌幅+1 ) -1) %>% round(digits = 4)
-each_portfolio_return_rate$市場漲跌幅 = each_portfolio_return_rate$市場漲跌幅 %>% round(digits = 4)
-
-#報酬指數
-each_portfolio_return_rate$投組累積報酬指數 = each_portfolio_return_rate$投組累積報酬+1
-each_portfolio_return_rate$市場累積報酬指數　= each_portfolio_return_rate$市場累積報酬 + 1
-
-# 畫DD線 : 下面的最大回洛也是正確的，只是這邊自己算的會比較大的原因是因為，這邊是用歷史高點過去的歷史高點，所以如果有漲幅的話這個不考慮，
-# 但是下面的那個會考慮，應該啦，用人加函數的缺點就是不知道確切來說是怎麼去做計算的
-each_portfolio_return_rate$cummax = cummax(each_portfolio_return_rate$投組累積報酬指數) 
-each_portfolio_return_rate$dd =  ((each_portfolio_return_rate$投組累積報酬指數)/cummax(each_portfolio_return_rate$投組累積報酬指數))-1
-dd_ratio = min(each_portfolio_return_rate$dd) %>% round(4)
-dd_day = each_portfolio_return_rate[each_portfolio_return_rate$dd == min(each_portfolio_return_rate$dd),] #找出回落最深的dd,那毅天就是結束的一天
-dd_end = dd_day$年月日
-dd_start = each_portfolio_return_rate[each_portfolio_return_rate$投組累積報酬指數 == dd_day$cummax,]
-dd_start = dd_start$年月日
-dd_during_period = dd_end-dd_start
-
-#市場dd 
-each_portfolio_return_rate$market_dd =  ((each_portfolio_return_rate$市場累積報酬指數)/cummax(each_portfolio_return_rate$市場累積報酬指數))-1
-market_dd_ratio = min(each_portfolio_return_rate$market_dd) %>% round(4)
-dd_df = data.table(投組最大回落 = dd_ratio , 回落開始日期 =  dd_start ,
-                   回落結束日期 = dd_end , 回落持續天數 = dd_during_period , 市場最大回落 = market_dd_ratio )
-
-
-# 最大回落 利用函數做出來的mdd指標，比上面自己製作的還要小，不知道是為甚麼沒有檢查，也不知道函數要怎麼檢查，沒有使用
-# mdd =  each_portfolio_return_rate$投組累積報酬指數 %>% arrange(年月日) 
-# mdd =  each_portfolio_return_rate$投組累積報酬指數 %>% maxdrawdown()
-# mdd_ratio = (each_portfolio_return_rate$投組累積報酬指數[mdd$to] - each_portfolio_return_rate$投組累積報酬指數[mdd$from]) / each_portfolio_return_rate$投組累積報酬指數[mdd$from]
-# mdd_ratio = round(mdd_ratio,digits = 3)
-# mdd_start_day = each_portfolio_return_rate$年月日[mdd$from] #最大回落高點日期
-# mdd_end_day = each_portfolio_return_rate$年月日[mdd$to] #最大回落低點日期
-# mdd_during_period = (mdd_end_day - mdd_start_day) %>% as.numeric()   #回落時間
-# # each_portfolio_return_rate$市場累積報酬指數 = each_portfolio_return_rate$市場累積報酬+1
-# mdd = maxdrawdown(each_portfolio_return_rate$市場累積報酬指數)
-# market_mdd_ratio = (each_portfolio_return_rate$市場累積報酬指數[mdd$to] - each_portfolio_return_rate$市場累積報酬指數[mdd$from]) / each_portfolio_return_rate$市場累積報酬指數[mdd$from] %>% round(digits = 3)
-# market_mdd_ratio = round(market_mdd_ratio,digits = 3)
-# mdd_df = data.table(投組最大回落 = mdd_ratio , 回落開始日期 =  mdd_start_day ,
-#                     回落結束日期 = mdd_end_day , 回落持續天數 = mdd_during_period , 市場最大回落 = market_mdd_ratio)
-
-
-# 總報酬
-pf_total_return = each_portfolio_return_rate$投組累積報酬[length(each_portfolio_return_rate$投組累積報酬)]
-market_total_return = each_portfolio_return_rate$市場累積報酬[length(each_portfolio_return_rate$市場累積報酬)]
-
-# 年化報酬
-year = length(each_portfolio_return_rate$投組累積報酬) / 252
-pf_annual_return = ( (1+pf_total_return)^(1/year) -1 ) %>% round(digits = 3)
-market_annual_return = ( (1+market_total_return)^(1/year) -1 ) %>% round(digits = 3)
-return_df = data.table(投組總報酬 = pf_total_return , 投組年化報酬 = pf_annual_return , 
-                       市場總報酬 = market_total_return , 市場年化報酬 = market_annual_return)
-
-# 勝率
-winning_percentage = data.table(平均勝率 = mean(log_trade_list$勝率)) %>% round(digits = 2)
-
-# 把指標打包起來
-trade_period = data.table(投資開始日期 = start_day , 投資結束日期 = end_day)
-trading_ndays = data.table(交易次數 = unique(log_portfolio_stock_trade$買入時間) %>% length() )
-n_stock = data.table(平均投資檔數 = mean(log_trade_list$投資股票數量))
-log_correct_portfolio_final_report = data.table( trade_period, return_df , dd_df , 
-                                                 winning_percentage , trading_ndays , n_stock ) 
-
-# 統計股票出現次數
-stock_appear_count_list = log_portfolio_stock_trade$證券代碼 
-stock_appear_count_list = table(stock_appear_count_list) %>% as.data.table()
-colnames(stock_appear_count_list) = c("證券代碼","出現次數")
-stock_appear_count_list$證券代碼 = stock_appear_count_list$證券代碼 %>% as.numeric()
-log_portfolio_stock_trade = merge(log_portfolio_stock_trade, stock_appear_count_list , by = "證券代碼")
-#cardinal = order(log_portfolio_stock_trade$出現次數, decreasing = T ) 
-#rownames(log_portfolio_stock_trade) = NULL
-
-#畫圖出來
-
-# 畫圖的部分 thank to 姿雅
-
-return_index_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
-  geom_line(aes(y = 投組累積報酬*100, color = "Portfolio Return")) +
-  geom_line(aes(y = 市場累積報酬*100, color = "Market Return" )) +
-  ggtitle("投資組合報酬與市場比較") +
-  xlab("投資期間") +
-  ylab("投資累積報酬率 %" ) +
-  scale_color_manual("", values = c("Portfolio Return" = "blue" , "Market Return" = "red" )) +
-  theme(
-    legend.position = "bottom"
-  )  
-#print( return_index_image )
-
-drawdown_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
-  geom_line(aes(y = dd , color = "Drawdown"  )   ) +
-  ggtitle("Downside Risk") +
-  xlab("投資期間") +
-  ylab("Drawdown Rate ")+
-  scale_color_manual("", values = c("Drawdown" = "black")) +
-  theme(
-    legend.position = "bottom"
-  )
-# print( drawdown_image )
-# 
-combine_image = plot_grid( return_index_image, drawdown_image ,nrow = 2 , align = "v" , rel_heights = c(2,1))
-print(combine_image)
-
-
-# 把df打包成list，方便之後return
-list_package = list( each_portfolio_return_rate ,log_correct_portfolio_final_report , log_trade_list , log_portfolio_stock_trade )
-return(list_package)
-
-}
+  #報酬指數
+  each_portfolio_return_rate$投組累積報酬指數 = each_portfolio_return_rate$投組累積報酬+1
+  each_portfolio_return_rate$市場累積報酬指數　= each_portfolio_return_rate$市場累積報酬 + 1
+  
+  # 畫DD線 : 下面的最大回洛也是正確的，只是這邊自己算的會比較大的原因是因為，這邊是用歷史高點過去的歷史高點，所以如果有漲幅的話這個不考慮，
+  each_portfolio_return_rate$cummax = cummax(each_portfolio_return_rate$投組累積報酬指數) 
+  each_portfolio_return_rate$dd =  ((each_portfolio_return_rate$投組累積報酬指數)/cummax(each_portfolio_return_rate$投組累積報酬指數))-1
+  dd_ratio = min(each_portfolio_return_rate$dd) %>% round(4)
+  dd_day = each_portfolio_return_rate[each_portfolio_return_rate$dd == min(each_portfolio_return_rate$dd),] #找出回落最深的dd,那一天就是結束的一天
+  dd_end = dd_day$年月日
+  dd_start = each_portfolio_return_rate[each_portfolio_return_rate$投組累積報酬指數 == dd_day$cummax,]
+  dd_start = dd_start$年月日
+  dd_during_period = dd_end-dd_start
+  
+  #市場dd 
+  each_portfolio_return_rate$market_dd =  ((each_portfolio_return_rate$市場累積報酬指數)/cummax(each_portfolio_return_rate$市場累積報酬指數))-1
+  market_dd_ratio = min(each_portfolio_return_rate$market_dd) %>% round(4)
+  dd_df = data.table(投組最大回落 = dd_ratio , 回落開始日期 =  dd_start ,
+                     回落結束日期 = dd_end , 回落持續天數 = dd_during_period , 市場最大回落 = market_dd_ratio )
+  
+  # 總報酬
+  pf_total_return = each_portfolio_return_rate$投組累積報酬[length(each_portfolio_return_rate$投組累積報酬)]
+  market_total_return = each_portfolio_return_rate$市場累積報酬[length(each_portfolio_return_rate$市場累積報酬)]
+  
+  # 年化報酬
+  year = length(each_portfolio_return_rate$投組累積報酬) / 252
+  pf_annual_return = ( (1+pf_total_return)^(1/year) -1 ) %>% round(digits = 3)
+  market_annual_return = ( (1+market_total_return)^(1/year) -1 ) %>% round(digits = 3)
+  return_df = data.table(投組總報酬 = pf_total_return , 投組年化報酬 = pf_annual_return , 
+                         市場總報酬 = market_total_return , 市場年化報酬 = market_annual_return)
+  
+  # 勝率
+  winning_percentage = data.table(平均勝率 = mean(log_trade_list$勝率)) %>% round(digits = 2)
+  
+  # 統計股票出現次數
+  stock_appear_count_list = log_portfolio_stock_trade$證券代碼 
+  stock_appear_count_list = table(stock_appear_count_list) %>% as.data.table()
+  colnames(stock_appear_count_list) = c("證券代碼","出現次數")
+  stock_appear_count_list$證券代碼 = stock_appear_count_list$證券代碼 %>% as.numeric()
+  log_portfolio_stock_trade = merge(log_portfolio_stock_trade, stock_appear_count_list , by = "證券代碼")
+  
+  #####年報表計算#####
+  daily_portfolio_change = daily_portfolio_change %>% mutate( 年　= (substr(年月日, 1 , 4)  %>% as.numeric()) )　
+  daily_portfolio_change = ddply( daily_portfolio_change, c("年") , 
+                                  .fun= function(x){
+                                    transform(x, 
+                                              #投組年化報酬
+                                              annual_return　=  (cumprod(1+分配後的漲跌幅)-1 )
+                                    )
+                                  } )
+  
+  year_sheet = daily_portfolio_change %>% group_by(年) %>% filter(年月日 == max(年月日) )
+  year_sheet = year_sheet[,c("年月日","年","annual_return")]
+  
+  #####年績效指標衡量#####
+  #risk_free_rate
+  Rf = 0.012    
+  #投組年標準差
+  annual_return_sigma = sd(year_sheet$annual_return) %>% round(digits = 4)
+  # sharpe ratio
+  sharpe_ratio = ( ( mean(year_sheet$annual_return) - Rf ) / annual_return_sigma ) %>% round(digits = 3)
+  #下檔標準差
+  year_sheet$downsideside_change_year = ifelse(year_sheet$annual_return >=0 , 0 , year_sheet$annual_return )
+  downside_sigma = (sd(year_sheet$downsideside_change)) 
+  # sortino ratio
+  sortino_ratio =  (mean(year_sheet$annual_return) - Rf) / downside_sigma %>% round(digits = 3)
+  
+  
+  #####把指標打包起來#####
+  start_day = each_portfolio_return_rate$年月日 %>% min()
+  end_day = each_portfolio_return_rate$年月日 %>% max()
+  trade_period = data.table(投資開始日期 = start_day , 投資結束日期 = end_day)
+  trading_ndays = data.table(交易次數 = unique(log_portfolio_stock_trade$買入時間) %>% length() )
+  n_stock = data.table(平均投資檔數 = mean(log_trade_list$投資股票數量))
+  log_correct_portfolio_final_report = data.table( trade_period,
+                                                   return_df ,
+                                                   dd_df , 
+                                                   winning_percentage ,
+                                                   trading_ndays ,
+                                                   n_stock ,
+                                                   投組標準差 = annual_return_sigma ,
+                                                   下檔標準差 = downside_sigma ,
+                                                   下檔機率 = downdise_probability,
+                                                   sharpe_ratio = sharpe_ratio ,
+                                                   sortino_ratio = sortino_ratio ,
+                                                   
+                                                  ) 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  #####畫圖出來#####
+  
+  # 畫圖的部分 thank to 姿雅
+  
+  return_index_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
+    geom_line(aes(y = 投組累積報酬*100, color = "Portfolio Return")) +
+    geom_line(aes(y = 市場累積報酬*100, color = "Market Return" )) +
+    ggtitle("投資組合報酬與市場比較") +
+    xlab("投資期間") +
+    ylab("投資累積報酬率 %" ) +
+    scale_color_manual("", values = c("Portfolio Return" = "blue" , "Market Return" = "red" )) +
+    theme(
+      legend.position = "bottom"
+    )  
+  #print( return_index_image )
+  
+  drawdown_image = ggplot(each_portfolio_return_rate , aes(x = 年月日)) +
+    geom_line(aes(y = dd , color = "Drawdown"  )   ) +
+    ggtitle("Downside Risk") +
+    xlab("投資期間") +
+    ylab("Drawdown Rate ")+
+    scale_color_manual("", values = c("Drawdown" = "black")) +
+    theme(
+      legend.position = "bottom"
+    )
+  # print( drawdown_image )
+  # 
+  combine_image = plot_grid( return_index_image, drawdown_image ,nrow = 2 , align = "v" , rel_heights = c(2,1))
+  print(combine_image)
+  
+  
+  # 把df打包成list，方便之後return
+  list_package = list( each_portfolio_return_rate ,log_correct_portfolio_final_report , log_trade_list , log_portfolio_stock_trade )
+  return(list_package)
+  
+  }
 
 
 
