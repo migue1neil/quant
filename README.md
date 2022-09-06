@@ -13,7 +13,7 @@ It will run out three major reports plus a picture, the report is as follows
 
 3. log_portfolio_stock_trade, the investment summary table of each period, tells you the performance of each entry and exit in these years, you can see how the winning rate of the recent entry and exit is, plus or minus evaluation
 
-4.daily_portfolio_change, the change of the investment group’s daily trading remuneration, this part will not be used at present, if you need to run academic regression analysis or remuneration distribution, it will be used.
+4.  daily_portfolio_change, the change of the investment group’s daily trading remuneration, this part will not be used at present, if you need to run academic regression analysis or remuneration distribution, it will be used.
 But if you just want to buy stocks then this table is useless.
 
 The program mainly uses the quant_mod file to complete all the work. The current functions of each program will be introduced below.
@@ -36,12 +36,9 @@ This is the first time I have written a program, and many places are very simple
 
 3.log_portfolio_stock_trade,每期投資總表，告訴你這些年每次進出的時間點的績效，可以看一下最近幾次進出的勝率怎麼樣，再加減評估
 
-4.daily_portfolio_change,投組每天交易的報酬變化，這部分目前不會用到之後如果需要跑學術上的迴歸分析或是報酬分布才會使用到，
-但如果只是想要買股票那這張表就沒有用處了。
+4.daily_portfolio_change,投組每天交易的報酬變化，這部分目前不會用到之後如果需要跑學術上的迴歸分析或是報酬分布才會使用到，但如果只是想要買股票那這張表就沒有用處了。
 
-程式主要是利用quant_mod這個檔案去完成所有的工作，下面會介紹各個程式目前的功能
+程式主要是利用quant_mod這個檔案去完成所有的工作，下面會介紹各個程式目前的功能 \n
 
-程式主要分為data和func兩個部分，data主要是再做資料整理以及該報表的的指標設計,
-func的部分主要是程式的功能，像是決定買賣時間以及停損功能等等。
-
+程式主要分為data和func兩個部分，data主要是再做資料整理以及該報表的的指標設計,func的部分主要是程式的功能，像是決定買賣時間以及停損功能等等。
 這是小的第一次寫程式，很多地方非常簡陋，像是變數命名方式不統一，語法風格不一等等，未來在維護的時候會盡量修改，還請讀者多多包涵。
