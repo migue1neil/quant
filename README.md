@@ -28,7 +28,7 @@ This is the first time I have written a program, and many places are very simple
 
 此程式的功能可以根據自己的想法去回測台股的歷史績效如何，以及停損點的設計，根據自己要的篩選方式輸入，目前預設是因子投資的品質因子
 
-會跑出三大報表加一張圖，報表如下所述。
+會跑出三大報表加一張圖，報表如下所述:
 
 1.log_final_report,投資總表，告訴你這些年來的績效如何以及相關風險指標的表現。
 
