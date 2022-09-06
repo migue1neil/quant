@@ -21,7 +21,7 @@ The part of func is mainly the function of the program, such as determining the 
 This is the first time I have written a program, and many places are very simple, such as variable naming methods, different grammar styles, etc. It will be modified as much as possible during maintenance in the future. Please bear with me.
 
 
-嗨嗨，我是Neil，這是我利用R製作的台股交易回測程式
+嗨嗨，我是Neil，這是我利用R製作的台股交易回測程式，主要是使用quant_mod這個檔案進行操作
 
 此程式的功能可以根據自己的想法去回測台股的歷史績效如何，以及停損點的設計，根據自己要的篩選方式輸入，目前預設是因子投資的品質因子
 
