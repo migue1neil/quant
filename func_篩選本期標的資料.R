@@ -8,11 +8,11 @@ library(tseries) #會用到最大回落
 library(magrittr) # %>% 水管工人
 library(TTR) # 量化套件，結合dplyr使用可以快速分組做計算
 
-#載入資料
-table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_current_stock_price_data20210104_20220822.txt", encoding = "unknown" , header = T,sep = ",")
+#載入資料 2022/0909
+table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_current_stock_price_data20100104_20220908.txt", encoding = "unknown" , header = T,sep = ",")
 table_data = table_data[年月日 > 20100101,]
 IFRS = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_z_score_fin_index_data20220814.txt", encoding = "unknown" , header = T,sep = ",")
-month_revenue = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/month_revenue202208.txt",
+month_revenue = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/month_revenue202209.txt",
                       encoding = "unknown" , header = T,sep = ",")
 
 # 目前沒辦法排除證券代碼相同的ETF跟股票例如股票6203跟元大MSCI6203只能手動先排除
@@ -24,15 +24,15 @@ table_data = table_data %>% filter(公司名稱 != "元大富櫃50" &
 selected_stock_price = table_data %>% filter(年月日 == max(table_data$年月日) & is.na(證券代碼) == F 
                                              &  TSE產業別 != 91 & TSE產業別 != 0 
                                              & Price_MA_20 > 10 & 成交張數_MA_20 >　300
-                                             & 調整收盤價 > Price_MA_60 &
-                                             Price_MA_20 < 150 )
+                                             & 調整收盤價 > Price_MA_60 )
+                                             # Price_MA_20 < 150 )
 
 selected_stock_price = selected_stock_price %>% filter(abs(z_CV_price) <= 3 )
 month_revenue_sheet = month_revenue %>% filter(abs(z_月營收YoY) <= 3 )
 
 IFRS$時間標籤 = ymd(IFRS$時間標籤)
-fin_factor = IFRS %>% filter(時間標籤 <= Sys.Date()) %>% group_by(證券代碼) %>% filter(時間標籤 == max(時間標籤)) #小於交易日中選最大的(最近的)
-fin_factor = fin_factor %>% filter(淨利 > 0)
+fin_factor = IFRS %>% filter(時間標籤 <= Sys.Date()) %>% group_by(證券代碼) %>% filter(時間標籤 == max(時間標籤) & 淨利 > 0 ) #小於交易日中選最大的(最近的)
+#fin_factor = fin_factor %>% filter(淨利 > 0)
 
 sum_table = inner_join(selected_stock_price , fin_factor , by = c("證券代碼","公司名稱","TSE產業別"))
 sum_table = inner_join(sum_table , month_revenue_sheet , by = c("證券代碼","公司名稱","TSE產業別"))
@@ -68,3 +68,9 @@ wait_to_buy = sum_table[,c("證券代碼","公司名稱","年月日","調整收�
 # equal = my_money/nrow(wait_to_buy)
 
 gc()
+
+#設計一個要買入的股數 (零股為單位)
+my_money = 100000
+n_stock = nrow(wait_to_buy)
+equal_weight = my_money / n_stock
+wait_to_buy$買入股數 = equal_weight/wait_to_buy$調整收盤價

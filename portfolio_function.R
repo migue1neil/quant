@@ -134,9 +134,10 @@ portfolio_function = function(table_data, start_day , end_day  , stock_list , A 
     x$dd =  ((x$投資報酬指數)/cummax(x$投資報酬指數))-1
     dd_ratio = min(x$dd) %>% round(4)
     dd_day = x[x$dd == min(x$dd),] #找出回落最深的dd,那一天就是結束的一天
+    #dd_day = max(dd_day$年月日)
     dd_end = dd_day$年月日 #最大回落低點日期
     dd_start = x[x$投資報酬指數 == dd_day$cummax,] #最大回落高點日期
-    dd_start = min( dd_start$年月日 )
+    dd_start = min(dd_start$年月日)
     dd_during_period = (dd_end-dd_start) %>% as.numeric()  #回落時間
 
     # 整理單一期的績效表

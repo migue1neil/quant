@@ -18,23 +18,24 @@ source("func_caculate_index.R" , encoding = "utf-8")
 source("func_trade_time_choose.R" , encoding = "utf-8")
 
 # 施工使用
-  # start_day = 20130101
-  # end_day = 20220809
-  # discount = 0
-  # invest_nstock = 30
-  # trade_frequency = "season"
-  # A = 100
-# global_market_index = 0050
-# stop_loss_point = -0.10
-# stop_loss_func = F
+  #  start_day = 20160101
+  #  end_day = 20171231
+  #  discount = 0
+  #  invest_nstock = 30
+  #  trade_frequency = "month"
+  #  A = 100
+  # global_market_index = 0050
+  # stop_loss_point = -0.10
+  # stop_loss_func = F
 
 
 ######載入資料#####
-table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_stock_price_data20080102_20220812.txt", encoding = "unknown" , header = T,sep = ",")
+table_data = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_current_stock_price_data20100104_20220908.txt", encoding = "unknown" , header = T,sep = ",")
 table_data = table_data[年月日 > 20100101,]
 IFRS = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/tidy_z_score_fin_index_data20220814.txt", encoding = "unknown" , header = T,sep = ",")
-month_revenue = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/month_revenue202208.txt",
+month_revenue = fread("C:/Users/Neil/Documents/git-repos/backtest_in_R/stock_data/month_revenue202209.txt",
                       encoding = "unknown" , header = T,sep = ",")
+month_revenue = month_revenue[,c(1:12)]
 
 # 目前沒辦法排除證券代碼相同的ETF跟股票例如股票6203跟元大MSCI6203只能手動先排除
 table_data = table_data %>% filter(公司名稱 != "元大富櫃50" &
@@ -72,7 +73,7 @@ quant_func = function(table_data, start_day , end_day , A = 100 , global_market_
      tmp_a = tmp_a %>% filter(tmp_a$Price_MA_20 > 10) #排除雞蛋水餃股
      
      #排除高價股
-     tmp_a = tmp_a %>% filter(tmp_a$Price_MA_20 < 150) 
+    # tmp_a = tmp_a %>% filter(tmp_a$Price_MA_20 < 150) 
      tmp_a = tmp_a[tmp_a$調整收盤價 > tmp_a$Price_MA_60, ] #季線上 動能
      tmp_a = tmp_a[tmp_a$成交張數_MA_20 > 300 ,] #流動性
      #cardinal = order(tmp_a$CV股價離散程度, decreasing = F) #依照CV做排序，由小排到大
@@ -191,7 +192,7 @@ gc()
 
 #
 
-box = quant_func(table_data , start_day = 20130101 , end_day = max(table_data$年月日)-2 
+box = quant_func(table_data , start_day = 20150101 , end_day = 20220906 
                  , trade_frequency = "month" , invest_nstock = 10
                 ,stop_loss_func = F ,stop_loss_point = -0.1 )
 

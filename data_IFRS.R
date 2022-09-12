@@ -20,7 +20,7 @@ ACC = 折舊－CFO - (流動資產-流動負債) / 資產總額
 "
 
 #財務報表資料
-IFRS = fread("IFRS20000101_20220813.txt" , sep = "," )
+IFRS = fread("IFRS20220912.txt" , sep = "," )
 IFRS$證券代碼 = str_trim( IFRS$證券代碼 , side='both')
 IFRS = separate(IFRS, 證券代碼 , c("證券代碼","公司名稱")," ")
 IFRS$證券代碼 = IFRS$證券代碼 %>% as.numeric()
