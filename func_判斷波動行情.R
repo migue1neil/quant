@@ -30,9 +30,9 @@ hedge_index_func = function(vector){
         high_quantile = quantile(quantile,c(0.67) , na.rm = T ) %>% as.numeric() #67百分位數
         if (quantile[length(quantile)] < low_quantile ){
           vol = "小波動,0"  }
-        if (quantile[length(quantile)] > low_quantile & quantile[length(quantile)] < high_quantile  ){
+        if (quantile[length(quantile)] >= low_quantile & quantile[length(quantile)] < high_quantile  ){
           vol = "中波動,1"  }
-        if (quantile[length(quantile)] > high_quantile ){
+        if (quantile[length(quantile)] >= high_quantile ){
           vol = "大波動,2"  }
         hedge_index = c( hedge_index , vol )
     }
@@ -56,3 +56,6 @@ TW_index = TW_index %>% na.omit()
 plot(y = TW_index$hedge_index_code , x = TW_index$年月日  )
 
 cat("現在的波動行情是:",TW_index$hedge_index[nrow(TW_index)])
+
+table(TW_index$hedge_index)
+str(TW_index)

@@ -184,15 +184,11 @@ for(stop_loss in c( T , F )){
       }
 }
   
-  
-  
-  
 gc()
-
 
 #
 
 box = quant_func(table_data , start_day = 20150101 , end_day = 20220906 
-                 , trade_frequency = "month" , invest_nstock = 10
+                 , trade_frequency = "season" , invest_nstock = 10
                 ,stop_loss_func = F ,stop_loss_point = -0.1 )
 
