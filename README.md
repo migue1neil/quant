@@ -1,4 +1,4 @@
-# quant
+# Quant
 some quant tool about this tree
 
 Hi, my name is Neil, and this is my backtesting program for Taiwan stock trading made in R
