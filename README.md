@@ -1,5 +1,5 @@
 # Quant
-some quant tool about this tree
+PPT link : https://drive.google.com/file/d/1wHM22H02AVPixg5jpMyCXeoKU538KXAR/view
 
 Hi, my name is Neil, and this is my backtesting program for Taiwan stock trading made in R
 
